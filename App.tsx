@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Message, CSVData } from './types';
@@ -107,7 +106,7 @@ GUA MUSANG,KELANTAN,2024,5988,6037,2024,21300,28300,-15312,Kurang Penawaran,2231
 JELI,KELANTAN,2024,2251,2661,2024,13200,12500,-10949,Kurang Penawaran,10249
 KOTA BHARU,KELANTAN,2024,36541,42087,2024,124200,146300,-87659,Kurang Penawaran,109759
 KUALA KRAI,KELANTAN,2024,6644,7403,2024,24700,30900,-18056,Kurang Penawaran,24256
-LOJING,KELANTAN,2024,,,,2200,2900,,,
+LOJING,KELANTAN,2024,0,0,2024,2200,2900,0,Cukup Penawaran,0
 MACHANG,KELANTAN,2024,7927,9063,2024,23900,28600,-15973,Kurang Penawaran,20673
 PASIR MAS,KELANTAN,2024,9075,10736,2024,48500,60800,-39425,Kurang Penawaran,51725
 PASIR PUTEH,KELANTAN,2024,4419,6118,2024,27900,36800,-23481,Kurang Penawaran,32381
@@ -183,7 +182,7 @@ const App: React.FC = () => {
     const shortageCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Kurang Penawaran').length;
     const surplusCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Lebih Penawaran').length;
     const topShortage = [...rows]
-      .filter(r => typeof r['Kecukupan_NAPIC'] === 'number')
+      .filter(r => r['Kecukupan_NAPIC'] !== undefined && r['Kecukupan_NAPIC'] !== null)
       .sort((a, b) => Number(a['Kecukupan_NAPIC']) - Number(b['Kecukupan_NAPIC']))
       .slice(0, 5);
 
@@ -264,17 +263,17 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                 <div className="bg-indigo-100 p-3 rounded-2xl text-indigo-600 mb-3"><Home className="w-6 h-6" /></div>
-                <div className="text-2xl font-black text-indigo-900">{stats?.totalUnits.toLocaleString()}</div>
+                <div className="text-2xl font-black text-indigo-900">{stats?.totalUnits.toLocaleString() || 0}</div>
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Jumlah Unit Semasa</div>
               </div>
               <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                 <div className="bg-red-100 p-3 rounded-2xl text-red-600 mb-3"><TrendingDown className="w-6 h-6" /></div>
-                <div className="text-2xl font-black text-red-600">{stats?.shortageCount}</div>
+                <div className="text-2xl font-black text-red-600">{stats?.shortageCount || 0}</div>
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Daerah Kurang Penawaran</div>
               </div>
               <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                 <div className="bg-green-100 p-3 rounded-2xl text-green-600 mb-3"><TrendingUp className="w-6 h-6" /></div>
-                <div className="text-2xl font-black text-green-600">{stats?.surplusCount}</div>
+                <div className="text-2xl font-black text-green-600">{stats?.surplusCount || 0}</div>
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Daerah Lebih Penawaran</div>
               </div>
               <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
@@ -286,7 +285,7 @@ const App: React.FC = () => {
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
               <div className="flex items-center gap-2 mb-6"><BarChart3 className="w-5 h-5 text-indigo-600" /><h3 className="font-extrabold text-gray-800">Purata Unit Semasa Mengikut Negeri</h3></div>
               <div className="space-y-4">{stats?.averageUnitsPerState.map((item, i) => {
-                const maxAvg = stats.averageUnitsPerState[0].average || 1;
+                const maxAvg = stats?.averageUnitsPerState[0]?.average || 1;
                 const percent = (item.average / maxAvg) * 100;
                 return <div key={i} className="group"><div className="flex justify-between text-xs font-bold mb-1.5"><span className="text-gray-700 uppercase tracking-tight">{item.state}</span><span className="text-indigo-600 font-black">{item.average.toLocaleString()} unit</span></div><div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percent}%` }} /></div></div>;
               })}</div>
