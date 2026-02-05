@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Message, CSVData } from './types';
@@ -187,7 +186,6 @@ const App: React.FC = () => {
     const shortageCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Kurang Penawaran').length;
     const surplusCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Lebih Penawaran').length;
     
-    // Explicitly casting to number for sorting safety
     const topShortage = [...rows]
       .filter(r => typeof r['Kecukupan_NAPIC'] === 'number')
       .sort((a, b) => Number(a['Kecukupan_NAPIC']) - Number(b['Kecukupan_NAPIC']))
@@ -358,7 +356,6 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
               </h3>
               <div className="space-y-4">
                 {stats?.topShortage.map((r, i) => {
-                  // Explicitly converting to number for arithmetic safety
                   const value = Math.abs(Number(r['Kecukupan_NAPIC']));
                   const firstVal = stats ? Math.abs(Number(stats.topShortage[0]['Kecukupan_NAPIC'])) : 1;
                   const max = firstVal || 1;
@@ -408,13 +405,11 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
 
         {/* RIGHT PANEL - CHATBOX */}
         <aside className="lg:w-[400px] xl:w-[500px] flex flex-col bg-white border-l border-gray-200 z-20">
-          {/* Chat Header (Inner) */}
           <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50 flex-shrink-0">
             <MessageSquare className="w-5 h-5 text-indigo-600" />
             <h2 className="text-lg font-black text-gray-800 tracking-tight">AI Analitik Assistant</h2>
           </div>
 
-          {/* Chat Messages */}
           <div 
             ref={chatScrollRef} 
             className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6 bg-white"
@@ -441,7 +436,6 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
             )}
           </div>
 
-          {/* Chat Input Area (Fixed to bottom of right panel) */}
           <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
             <div className="bg-white p-3 rounded-2xl shadow-lg border border-gray-200">
               <div className="flex items-end gap-2">
