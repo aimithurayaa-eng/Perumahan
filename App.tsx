@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Message, CSVData } from './types';
-import { parseCSV, getCSVPreview } from './utils/csvProcessor';
+import { parseCSV, getCSVPreview } from './csvProcessor';
 import { 
   Send, 
   Bot, 
@@ -163,29 +164,24 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  // Load data on startup
   useEffect(() => {
     const { headers, rows } = parseCSV(RAW_CSV_DATA);
     setCsvData({ headers, rows, fileName: "Kecukupan_NAPIC_2024.csv" });
   }, []);
 
-  // Auto-scroll logic for chat
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Calculate stats for Dashboard
   const stats = useMemo(() => {
     if (!csvData) return null;
     const rows = csvData.rows;
-    
     const totalUnits = rows.reduce((acc, r) => acc + (Number(r['BIL UNIT NAPIC SEMASA']) || 0), 0);
     const totalDistricts = rows.length;
     const shortageCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Kurang Penawaran').length;
     const surplusCount = rows.filter(r => String(r['Tahap_NAPIC'] || '').trim() === 'Lebih Penawaran').length;
-    
     const topShortage = [...rows]
       .filter(r => typeof r['Kecukupan_NAPIC'] === 'number')
       .sort((a, b) => Number(a['Kecukupan_NAPIC']) - Number(b['Kecukupan_NAPIC']))
@@ -196,9 +192,7 @@ const App: React.FC = () => {
       const state = String(r['Negeri'] || '').trim();
       const units = Number(r['BIL UNIT NAPIC SEMASA']) || 0;
       if (state) {
-        if (!stateUnits[state]) {
-          stateUnits[state] = { total: 0, count: 0 };
-        }
+        if (!stateUnits[state]) stateUnits[state] = { total: 0, count: 0 };
         stateUnits[state].total += units;
         stateUnits[state].count += 1;
       }
@@ -219,7 +213,6 @@ const App: React.FC = () => {
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading || !csvData) return;
-
     const userMessage = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
@@ -227,27 +220,12 @@ const App: React.FC = () => {
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const systemInstruction = `Anda ialah Agent Analitik Dashboard.
-Tugas anda: jawab soalan pengguna berdasarkan data CSV Kecukupan Penawaran Perumahan (NAPIC) yang disediakan.
-Peraturan:
-1. Jangan reka nombor. Semua nombor mesti datang daripada data CSV yang diberikan.
-2. Jika soalan perlukan penapis (contoh: negeri, daerah) dan tiada dalam mesej pengguna, anggap "semua data" dan nyatakan andaian itu dengan jelas.
-3. Beri output ringkas dalam Bahasa Malaysia.
-4. Format output MESTI sertakan:
-   - **Ringkasan Dapatan**: (1-3 ayat tentang status penawaran perumahan)
-   - **Jadual Data**: (Gunakan format jadual Markdown yang kemas)
-   - **Insight**: (Contoh: daerah dengan kekurangan tertinggi, perbandingan antara negeri, outlier seperti 'Lebih Penawaran')
-   - **Cadangan Visual**: Sediakan cadangan yang spesifik termasuk jenis carta dan dimensi data.
-
-Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BIL UNIT NAPIC, Kecukupan_NAPIC, dan Tahap_NAPIC.`;
-
+      const systemInstruction = `Anda ialah Agent Analitik Dashboard. Jawab soalan pengguna berdasarkan data CSV Kecukupan Penawaran Perumahan (NAPIC). 1. Jangan reka nombor. 2. Beri output ringkas dalam Bahasa Malaysia. 3. Format output: Ringkasan, Jadual, Insight, Cadangan Visual.`;
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: userMessage,
         config: { systemInstruction, temperature: 0.1 }
       });
-
       setMessages(prev => [...prev, { role: 'assistant', content: response.text || "Maaf, ralat berlaku." }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Berlaku ralat. Sila cuba lagi." }]);
@@ -258,26 +236,17 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
 
   const renderContent = (content: string) => {
     return content.split('\n').map((line, i) => {
-      if (line.trim().startsWith('|')) {
-        return <div key={i} className="font-mono text-xs md:text-sm overflow-x-auto whitespace-pre bg-indigo-50/50 p-2 rounded border border-indigo-100 mb-2">{line}</div>;
-      }
+      if (line.trim().startsWith('|')) return <div key={i} className="font-mono text-xs md:text-sm overflow-x-auto whitespace-pre bg-indigo-50/50 p-2 rounded border border-indigo-100 mb-2">{line}</div>;
       const parts = line.split(/(\*\*.*?\*\*)/g);
-      return (
-        <p key={i} className="mb-2 leading-relaxed text-sm md:text-base">
-          {parts.map((part, j) => (part.startsWith('**') && part.endsWith('**')) ? <strong key={j} className="text-indigo-800 font-bold">{part.slice(2, -2)}</strong> : part)}
-        </p>
-      );
+      return <p key={i} className="mb-2 leading-relaxed text-sm md:text-base">{parts.map((part, j) => (part.startsWith('**') && part.endsWith('**')) ? <strong key={j} className="text-indigo-800 font-bold">{part.slice(2, -2)}</strong> : part)}</p>;
     });
   };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans text-gray-900">
-      {/* Header */}
       <header className="bg-indigo-700 text-white p-4 shadow-lg flex justify-between items-center z-30 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-xl">
-            <LayoutDashboard className="w-6 h-6" />
-          </div>
+          <div className="bg-white/20 p-2 rounded-xl"><LayoutDashboard className="w-6 h-6" /></div>
           <div>
             <h1 className="text-lg font-extrabold leading-none tracking-tight">Analitik NAPIC 2024</h1>
             <p className="text-[10px] text-indigo-200 mt-1 font-semibold uppercase tracking-widest">Sistem Analisis Perumahan Malaysia</p>
@@ -288,18 +257,10 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
           <span>{csvData?.rows.length || 0} REKOD AKTIF</span>
         </div>
       </header>
-
-      {/* Main Container - Split Screen on Desktop */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        
-        {/* LEFT PANEL - DASHBOARD */}
         <main className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6 bg-gray-50 border-r border-gray-200">
           <section className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              <h2 className="text-xl font-black text-gray-800 tracking-tight">Dashboard Ringkasan Penawaran</h2>
-            </div>
-
+            <div className="flex items-center gap-2 mb-2"><Sparkles className="w-5 h-5 text-indigo-600" /><h2 className="text-xl font-black text-gray-800 tracking-tight">Dashboard Ringkasan Penawaran</h2></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                 <div className="bg-indigo-100 p-3 rounded-2xl text-indigo-600 mb-3"><Home className="w-6 h-6" /></div>
@@ -322,159 +283,43 @@ Sila analisis data ini untuk menjawab soalan dengan tepat. Fokus kepada lajur BI
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Negeri Terlibat</div>
               </div>
             </div>
-
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-6">
-                <BarChart3 className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-extrabold text-gray-800">Purata Unit Semasa Mengikut Negeri</h3>
-              </div>
-              <div className="space-y-4">
-                {stats?.averageUnitsPerState.map((item, i) => {
-                  const maxAvg = stats.averageUnitsPerState[0].average || 1;
-                  const percent = (item.average / maxAvg) * 100;
-                  return (
-                    <div key={i} className="group">
-                      <div className="flex justify-between text-xs font-bold mb-1.5">
-                        <span className="text-gray-700 uppercase tracking-tight">{item.state}</span>
-                        <span className="text-indigo-600 font-black">{item.average.toLocaleString()} unit</span>
-                      </div>
-                      <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="font-extrabold text-gray-800 flex items-center gap-2 mb-6">
-                <AlertTriangle className="w-5 h-5 text-red-500" /> Kekurangan Paling Kritikal (NAPIC)
-              </h3>
-              <div className="space-y-4">
-                {stats?.topShortage.map((r, i) => {
-                  const value = Math.abs(Number(r['Kecukupan_NAPIC']));
-                  const firstVal = stats ? Math.abs(Number(stats.topShortage[0]['Kecukupan_NAPIC'])) : 1;
-                  const max = firstVal || 1;
-                  const percent = (value / max) * 100;
-                  return (
-                    <div key={i}>
-                      <div className="flex justify-between text-xs font-bold mb-1.5">
-                        <span className="text-gray-700 uppercase">{r['DAERAH']}</span>
-                        <span className="text-red-500">{Number(r['Kecukupan_NAPIC']).toLocaleString()}</span>
-                      </div>
-                      <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${percent}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            <div className="pb-8">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                <h3 className="font-extrabold text-gray-800 mb-6 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-indigo-600" /> Taburan Bilangan Daerah
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="pb-3 font-bold text-gray-400 uppercase">Negeri</th>
-                        <th className="pb-3 font-bold text-gray-400 uppercase text-right">Daerah</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {Object.entries(stats?.stateStats || {}).sort((a, b) => Number(b[1]) - Number(a[1])).map(([state, count]) => (
-                        <tr key={state} className="hover:bg-indigo-50/30 transition-colors">
-                          <td className="py-3 font-bold text-gray-700">{state}</td>
-                          <td className="py-3 text-right font-black text-indigo-600">{count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <div className="flex items-center gap-2 mb-6"><BarChart3 className="w-5 h-5 text-indigo-600" /><h3 className="font-extrabold text-gray-800">Purata Unit Semasa Mengikut Negeri</h3></div>
+              <div className="space-y-4">{stats?.averageUnitsPerState.map((item, i) => {
+                const maxAvg = stats.averageUnitsPerState[0].average || 1;
+                const percent = (item.average / maxAvg) * 100;
+                return <div key={i} className="group"><div className="flex justify-between text-xs font-bold mb-1.5"><span className="text-gray-700 uppercase tracking-tight">{item.state}</span><span className="text-indigo-600 font-black">{item.average.toLocaleString()} unit</span></div><div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full transition-all duration-1000 ease-out" style={{ width: `${percent}%` }} /></div></div>;
+              })}</div>
             </div>
           </section>
         </main>
-
-        {/* RIGHT PANEL - CHATBOX */}
         <aside className="lg:w-[400px] xl:w-[500px] flex flex-col bg-white border-l border-gray-200 z-20">
-          <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50 flex-shrink-0">
-            <MessageSquare className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-black text-gray-800 tracking-tight">AI Analitik Assistant</h2>
-          </div>
-
-          <div 
-            ref={chatScrollRef} 
-            className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6 bg-white"
-          >
+          <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50 flex-shrink-0"><MessageSquare className="w-5 h-5 text-indigo-600" /><h2 className="text-lg font-black text-gray-800 tracking-tight">AI Analitik Assistant</h2></div>
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6 bg-white">
             {messages.map((m, idx) => (
               <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className={`flex gap-3 max-w-[90%] ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm border ${m.role === 'user' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-white border-gray-200 text-indigo-600'}`}>
-                    {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                  </div>
-                  <div className={`p-4 rounded-2xl text-sm shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}`}>
-                    {renderContent(m.content)}
-                  </div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm border ${m.role === 'user' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-white border-gray-200 text-indigo-600'}`}>{m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}</div>
+                  <div className={`p-4 rounded-2xl text-sm shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}`}>{renderContent(m.content)}</div>
                 </div>
               </div>
             ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="flex gap-3 items-center bg-gray-50 p-3 rounded-2xl shadow-sm border border-gray-100">
-                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
-                  <span className="text-xs text-gray-500 font-medium italic">Sedang memproses maklumat...</span>
-                </div>
-              </div>
-            )}
+            {isLoading && <div className="flex justify-start"><div className="flex gap-3 items-center bg-gray-50 p-3 rounded-2xl shadow-sm border border-gray-100"><Loader2 className="w-4 h-4 text-indigo-600 animate-spin" /><span className="text-xs text-gray-500 font-medium italic">Sedang memproses maklumat...</span></div></div>}
           </div>
-
           <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
             <div className="bg-white p-3 rounded-2xl shadow-lg border border-gray-200">
               <div className="flex items-end gap-2">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                  placeholder="Tanya AI tentang data..."
-                  className="flex-1 bg-gray-50 border-none focus:ring-1 focus:ring-indigo-500/20 rounded-xl p-3 resize-none max-h-32 min-h-[48px] outline-none text-gray-700 transition-all text-sm"
-                  disabled={isLoading}
-                />
-                <button 
-                  onClick={handleSendMessage}
-                  disabled={isLoading || !input.trim()}
-                  className={`p-3 rounded-xl transition-all shrink-0 shadow-md flex items-center justify-center ${isLoading || !input.trim() ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'}`}
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+                <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} placeholder="Tanya AI tentang data..." className="flex-1 bg-gray-50 border-none focus:ring-1 focus:ring-indigo-500/20 rounded-xl p-3 resize-none max-h-32 min-h-[48px] outline-none text-gray-700 transition-all text-sm" disabled={isLoading} />
+                <button onClick={handleSendMessage} disabled={isLoading || !input.trim()} className={`p-3 rounded-xl transition-all shrink-0 shadow-md flex items-center justify-center ${isLoading || !input.trim() ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'}`}><Send className="w-5 h-5" /></button>
               </div>
               <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 text-[9px] no-scrollbar">
-                {["Status Johor?", "Lebih Penawaran?", "Daerah kritikal?", "Unit Selangor"].map(q => (
-                  <button key={q} onClick={() => setInput(q)} className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 whitespace-nowrap font-bold transition-colors">{q}</button>
-                ))}
+                {["Status Johor?", "Lebih Penawaran?", "Daerah kritikal?", "Unit Selangor"].map(q => <button key={q} onClick={() => setInput(q)} className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 whitespace-nowrap font-bold transition-colors">{q}</button>)}
               </div>
             </div>
-            <p className="mt-3 text-center text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em]">
-              © 2024 NAPIC ANALITIK • Dikuasakan oleh GEMINI AI
-            </p>
           </div>
         </aside>
       </div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; } .no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
     </div>
   );
 };
